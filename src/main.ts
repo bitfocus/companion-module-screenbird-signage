@@ -105,11 +105,6 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		UpdateVariableDefinitions(this)
 	}
 
-	/** Reload scenes and screens now. */
-	async refresh(): Promise<void> {
-		await this.connection?.refresh()
-	}
-
 	/** Run a button action. A failure throws, so Companion logs the action as failed. */
 	async runAction(label: string, fn: (api: ScreenbirdApi) => Promise<unknown>): Promise<void> {
 		const connection = this.connection
@@ -145,6 +140,17 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	sceneById(id: unknown): Scene | undefined {
 		return this.scenes.find((s) => s.id === id)
+	}
+
+	/**
+	 * The scene id of a scene action; throws a clear message when no scene is chosen or a loaded list no longer has it.
+	 * Without a list (start-up, retry wait) a stored id is sent as is: a press can be what brings the connection back.
+	 */
+	resolveSceneId(value: unknown): string {
+		const id = typeof value === 'string' ? value.trim() : ''
+		if (!id) throw new Error('choose a scene')
+		if (this.scenes.length > 0 && !this.sceneById(id)) throw new Error('this scene no longer exists')
+		return id
 	}
 
 	/** Resolves a target dropdown value ("<screen>" or "<screen>/<subscreen>"); null when it no longer exists. */

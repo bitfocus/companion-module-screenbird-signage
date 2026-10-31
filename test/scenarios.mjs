@@ -1,6 +1,7 @@
 // End-to-end scenarios: the packaged module against the mock API.
 // Usage: NODE_EXTRA_CA_CERTS=<cert.pem> TEST_WORK_DIR=<dir> node test/scenarios.mjs <scenario>
 // Exits with 0 when every check passed. test/run-all.sh builds the module and runs all scenarios.
+import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import {
 	create,
@@ -61,7 +62,8 @@ const scenarios = {
 		check('start: socket open and status ok', !!(await waitOpen()))
 		await sleep(1500)
 		const ua = m.requests[0]?.ua
-		check('User-Agent carries the version from package.json', ua === 'screenbird-companion/1.0.0', ua)
+		const { version } = JSON.parse(readFileSync(`${MODULE_DIR}/package.json`, 'utf8'))
+		check('User-Agent carries the version from package.json', ua === `screenbird-companion/${version}`, ua)
 		check('X-Screenbird-Client is companion', m.requests[0]?.client === 'companion')
 		const contentOption = state.actions.push.options[1]
 		check(
@@ -75,6 +77,19 @@ const scenarios = {
 				'Screen 1|Screen 2 / Left|Screen 2 / Right',
 		)
 		check('next_scene without history is the first scene', state.vars.next_scene === 'Scene 1', state.vars.next_scene)
+
+		// A scene action without a known scene fails with a clear message and sends nothing.
+		const t00 = Date.now()
+		for (const [action, value, want] of [
+			['scene_activate', '', /choose a scene/],
+			['scene_release', '', /choose a scene/],
+			['scene_activate', '99999999-0000-4000-8000-000000000000', /no longer exists/],
+			['scene_release', '99999999-0000-4000-8000-000000000000', /no longer exists/],
+		]) {
+			const r0 = await press(action, { scene: value })
+			check(`${action} with scene "${value}": clear error`, !r0.ok && want.test(r0.error), r0.error)
+		}
+		check('scene action without a scene: no request', m.reqs(t00).length === 0, JSON.stringify(m.reqs(t00)))
 
 		// With an open socket a press only sends the POST; the new state arrives through the event (one refresh).
 		const t0 = Date.now()
@@ -334,11 +349,11 @@ const scenarios = {
 		await waitOpen()
 		await sleep(1200)
 		m.delay['GET /scenes'] = [1500, 0]
-		const p1 = inst.refresh() // sees the old state, answers after 1.5 s
+		const p1 = inst.connection.refresh() // sees the old state, answers after 1.5 s
 		await sleep(100)
 		m.scenes[0] = { ...m.scenes[0], status: { state: 'live', deviating: [] } }
 		m.lastActivated = m.scenes[0].id
-		const p2 = inst.refresh() // overlaps: waits for the running refresh, then loads again
+		const p2 = inst.connection.refresh() // overlaps: waits for the running refresh, then loads again
 		await p2
 		check('after the newer refresh: live', fb('scene_live', { scene: m.scenes[0].id }) === true)
 		await p1
@@ -630,7 +645,7 @@ const scenarios = {
 		]
 		for (const [last, want] of cases) {
 			m.lastActivated = last
-			await inst.refresh()
+			await inst.connection.refresh()
 			const name = last ? (m.scenes.find((s) => s.id === last)?.name ?? 'a deleted scene') : 'none'
 			check(`next_scene after ${name}`, state.vars.next_scene === want, state.vars.next_scene)
 		}

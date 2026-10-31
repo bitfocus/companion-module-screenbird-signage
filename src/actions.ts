@@ -36,13 +36,15 @@ export function UpdateActions(self: ModuleInstance): void {
 			name: 'Scene: go',
 			description: 'Show this scene on all its screens. Pressing again puts changes live.',
 			options: [sceneOption],
-			callback: async (event) => self.runAction('Scene go', async (api) => api.activate(String(event.options.scene))),
+			callback: async (event) =>
+				self.runAction('Scene go', async (api) => api.activate(self.resolveSceneId(event.options.scene))),
 		},
 		scene_release: {
 			name: 'Scene: stop',
 			description: 'Stop this scene: its screens go back to their own content.',
 			options: [sceneOption],
-			callback: async (event) => self.runAction('Scene stop', async (api) => api.release(String(event.options.scene))),
+			callback: async (event) =>
+				self.runAction('Scene stop', async (api) => api.release(self.resolveSceneId(event.options.scene))),
 		},
 		scene_next: {
 			name: 'Scene: next',
