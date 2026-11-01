@@ -521,9 +521,10 @@ const scenarios = {
 			status().status === 'connection_failure' && calls.length <= 2 && timers.some((x) => x.ms === 300000),
 			`${calls.length} calls, ${status().status}:${status().message}`,
 		)
-		// Account active again: a press works and the module goes live at once, not after the 5 minutes.
+		// Account active again: a press works and the module goes live at once, not after the 5 minutes. Scene: next has
+		// no dropdown; Companion refuses a Scene: go with a stored id while the scene list is still empty.
 		m.plan = {}
-		const r = await press('scene_activate', { scene: m.scenes[0].id })
+		const r = await press('scene_next')
 		const live = await waitOpen(1, 4000)
 		check(
 			'account active again: press works and goes live at once',
@@ -649,6 +650,29 @@ const scenarios = {
 			const name = last ? (m.scenes.find((s) => s.id === last)?.name ?? 'a deleted scene') : 'none'
 			check(`next_scene after ${name}`, state.vars.next_scene === want, state.vars.next_scene)
 		}
+		await inst.destroy()
+	},
+
+	async liveunavailable() {
+		m.upgradePlan = Array.from({ length: 20 }, () => ({ status: 403 }))
+		const inst = await create(cfg)
+		await waitFor(() => status().status === 'unknown_warning', 20000)
+		check(
+			'blocked socket: warning in the status',
+			/Live updates unavailable/.test(status().message ?? ''),
+			status().message,
+		)
+		check('blocked socket: three failed attempts first', m.upgrades.length >= 3, `attempts ${m.upgrades.length}`)
+		const warnings = () =>
+			state.logs.filter((l) => l.level === 'warn' && /refused the live connection/.test(l.message)).length
+		const before = warnings()
+		await waitFor(() => m.upgrades.length >= 5, 20000)
+		check('blocked socket: no new warnings in the log', warnings() === before, `${before} -> ${warnings()}`)
+		const r = await press('scene_activate', { scene: m.scenes[0].id })
+		check('blocked socket: a press still works', r.ok, r.error)
+		m.upgradePlan = []
+		await waitOpen(1, 40000)
+		check('socket open again: status ok', status().status === 'ok', `${status().status}:${status().message}`)
 		await inst.destroy()
 	},
 

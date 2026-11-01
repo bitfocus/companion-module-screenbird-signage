@@ -143,13 +143,14 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	/**
-	 * The scene id of a scene action; throws a clear message when no scene is chosen or a loaded list no longer has it.
-	 * Without a list (start-up, retry wait) a stored id is sent as is: a press can be what brings the connection back.
+	 * The scene id of a scene action; throws a clear message when no scene is chosen or the list no longer has it.
+	 * Companion refuses a value outside the dropdown's choices before the action runs, so a press never gets here while
+	 * the list is still empty.
 	 */
 	resolveSceneId(value: unknown): string {
 		const id = typeof value === 'string' ? value.trim() : ''
 		if (!id) throw new Error('choose a scene')
-		if (this.scenes.length > 0 && !this.sceneById(id)) throw new Error('this scene no longer exists')
+		if (!this.sceneById(id)) throw new Error('this scene no longer exists')
 		return id
 	}
 

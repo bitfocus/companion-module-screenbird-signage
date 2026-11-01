@@ -6,9 +6,10 @@ Requires Companion 4.3 or newer.
 
 ### Setup
 
-1. In Screenbird, go to **Settings > Connections > API tokens** and create a token with access **Control screens and scenes**.
-2. In Companion, add the Screenbird connection and paste the token.
-3. Open the presets: there is a button for every scene in your team.
+1. In Screenbird, turn on **Scenes** in **Settings > Advanced** and create your scenes. Only needed for the scene buttons; screens work without it.
+2. Go to **Settings > Connections > API tokens** and create a token with access **Control screens and scenes**.
+3. In Companion, add the Screenbird connection and paste the token.
+4. Open the presets: there is a button for every scene in your team.
 
 The token works in the team that was active when you created it. To control screens of another team, create a token while that team is active. Use one token per Companion connection.
 
@@ -58,10 +59,10 @@ Button states update right away through a live connection; the module does not p
 - **Authentication failure**: the token is invalid or was revoked. Create a new token in Screenbird and paste it in the connection settings.
 - **Insufficient permissions**: the token has no access to screens, or the person who created it lost access. Create a token with access **Control screens and scenes**.
 - **Connection failure** that mentions the API address: something answers that is not Screenbird, for example a Wi-Fi login page or a wrong address. Check the network and the API address.
-- **Waiting for the live connection** that does not go away: a firewall or proxy may block WebSocket traffic to `api.screenbird.app`. Buttons still work, but their colors only update after a press.
+- **Live updates unavailable**: a firewall or proxy blocks WebSocket traffic to `api.screenbird.app`. Buttons still work, but their colors only update after a press. Allow WSS on port 443 to that address.
 - **No active subscription**: the Screenbird account is inactive. The module checks again every 5 minutes.
 - **Bad configuration**: the token or the API address is missing or has the wrong format. Paste the token again; only `https://` addresses ending in `/v1` are accepted.
 
-Scenes are not available for every Screenbird account. Without scenes, the module works with screens only.
+With Scenes turned off in Screenbird, the module works with screens only.
 
 More help: [screenbird.app](https://screenbird.app).

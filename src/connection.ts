@@ -32,6 +32,10 @@ const CONTENT_ON_DEMAND_MAX_AGE_MS = 10_000
 /** Close codes of the events socket that need more than a plain reconnect. */
 const CLOSE_ACCESS_ENDED = 4011 // token revoked, account inactive, or the token's creator lost access
 const CLOSE_REPLACED = 4008 // another socket with the same token took over
+// After this many socket attempts in a row that never opened, the status explains that live updates are unavailable.
+const LIVE_UNAVAILABLE_AFTER = 3
+const LIVE_UNAVAILABLE_MESSAGE =
+	'Live updates unavailable (the connection to /v1/events cannot open); button states update only after a press'
 
 /** 403 codes on GET /scenes that only mean "no scenes": the module keeps working with screens. */
 const SCENES_UNAVAILABLE_CODES = new Set(['scenes_disabled', 'no_permission', 'insufficient_scope'])
@@ -89,6 +93,7 @@ export class Connection {
 	private problem: { status: InstanceStatus; message: string } | null = null
 	private socket: LiveSocket | null = null
 	private socketHoldUntil = 0
+	private failedOpens = 0
 	private readonly reconnectBackoff = new Backoff(RECONNECT_START_MS, RECONNECT_MAX_MS, RECONNECT_JITTER_MS)
 	private cycleTimer: NodeJS.Timeout | null = null
 
@@ -199,6 +204,8 @@ export class Connection {
 		if (this.stopped) return
 		if (this.problem) this.host.setStatus(this.problem.status, this.problem.message)
 		else if (!this.stateLoaded) this.host.setStatus(InstanceStatus.Connecting)
+		else if (this.failedOpens >= LIVE_UNAVAILABLE_AFTER && !this.isLive())
+			this.host.setStatus(InstanceStatus.UnknownWarning, LIVE_UNAVAILABLE_MESSAGE)
 		else if (!this.isLive()) this.host.setStatus(InstanceStatus.Connecting, 'Waiting for the live connection')
 		else this.host.setStatus(InstanceStatus.Ok)
 	}
@@ -365,6 +372,7 @@ export class Connection {
 		this.socket = new LiveSocket(ws, {
 			open: () => {
 				this.host.log('info', 'Live updates connected')
+				this.failedOpens = 0
 				// Changes between the last load and this moment did not produce an event: load once more.
 				this.requestRefresh(0)
 				this.showStatus()
@@ -374,7 +382,8 @@ export class Connection {
 				this.socket = null
 				this.socketLost(code, reason, openedAt)
 			},
-			warn: (message) => this.host.log('warn', message),
+			// A blocked socket fails on every retry: after the warning in the status, keep the rest out of the normal log.
+			warn: (message) => this.host.log(this.failedOpens >= LIVE_UNAVAILABLE_AFTER ? 'debug' : 'warn', message),
 		})
 	}
 
@@ -387,6 +396,10 @@ export class Connection {
 	private socketLost(code: number, reason: string, openedAt: number): void {
 		if (this.stopped) return
 		if (openedAt > 0 && Date.now() - openedAt >= STABLE_SOCKET_MS) this.reconnectBackoff.reset()
+		if (openedAt === 0) {
+			this.failedOpens += 1
+			if (this.failedOpens === LIVE_UNAVAILABLE_AFTER) this.host.log('warn', LIVE_UNAVAILABLE_MESSAGE)
+		}
 		if (code === CLOSE_ACCESS_ENDED) {
 			// Find out right away why access ended: a revoked token halts on the 401, an inactive account or missing
 			// permission is checked again slowly, anything else reconnects after the hold.

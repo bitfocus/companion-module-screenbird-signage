@@ -32,7 +32,7 @@ run_scenario() {
 }
 
 set +e
-for scenario in closecodes config nopong freeze revoked; do
+for scenario in closecodes config nopong freeze revoked liveunavailable; do
 	run_scenario "$scenario" &
 done
 for scenario in basic names colors refresh502 outoforder html ratelimit forbidden inactive scenesoff content403 \

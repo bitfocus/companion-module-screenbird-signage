@@ -1,6 +1,6 @@
 {
 	"name": "screenbird-signage",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "Bitfocus Companion module for Screenbird digital signage",
 	"main": "dist/main.js",
 	"type": "module",
